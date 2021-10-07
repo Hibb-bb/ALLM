@@ -73,6 +73,7 @@ class BERTAL(nn.Module):
         # embedding for BERT, sum of positional, segment, token embeddings
         self.embedding = BERTEmbedding_AL(vocab_size=vocab_size, embed_size=hidden)
 
+        # TODO: switch to ALBlock, and remove ModuleList if it doesn't work.
         # multi-layers transformer blocks, deep network
         self.transformer_blocks = nn.ModuleList(
             [TransformerBlock(hidden, attn_heads, hidden * 4, dropout) for _ in range(n_layers)])
