@@ -83,7 +83,7 @@ class BERTTrainer:
 
         # Setup cuda device for BERT training, argument -c, --cuda should be true
         cuda_condition = torch.cuda.is_available() and with_cuda
-        self.device = torch.device("cuda:0" if cuda_condition else "cpu")
+        self.device = torch.device("cuda" if cuda_condition else "cpu")
 
         # This BERT model will be saved every epoch
         self.bert = bert
@@ -92,9 +92,11 @@ class BERTTrainer:
 
         # Distributed GPU training if CUDA can detect more than 1 GPU
         if with_cuda and torch.cuda.device_count() > 1:
-            print("Using %d GPUS for BERT" % torch.cuda.device_count())
+            print("Using %d GPUS for BERT" % torch.cuda.device_count(), "CUDA ID",cuda_devices)
             self.model = nn.DataParallel(self.model, device_ids=cuda_devices)
-
+            # self.model = self.model.to(f'cuda:{self.model.device_ids[0]}')
+        else:
+            self.model = self.model.to(self.device)
         # Setting the train and test data loader
         self.train_data = train_dataloader
         self.test_data = test_dataloader
@@ -224,7 +226,7 @@ class BERTTrainer_AL:
         :param log_freq: logging frequency of the batch iteration
         """
 
-        wandb.init(project='gpt3', entity='allm')
+        wandb.init(project='ALLM', entity='allm')
 
         # Setup cuda device for BERT training, argument -c, --cuda should be true
         cuda_condition = torch.cuda.is_available() and with_cuda
@@ -239,7 +241,8 @@ class BERTTrainer_AL:
         if with_cuda and torch.cuda.device_count() > 1:
             print("Using %d GPUS for BERT" % torch.cuda.device_count())
             self.model = nn.DataParallel(self.model, device_ids=cuda_devices)
-
+        else:
+            self.model = self.model.to(self.device)
         # Setting the train and test data loader
         self.train_data = train_dataloader
         self.test_data = test_dataloader
@@ -273,7 +276,7 @@ class BERTTrainer_AL:
         :return: None
         """
         str_code = "train" if train else "test"
-
+        torch.cuda.empty_cache()
         # Setting the tqdm progress bar
         data_iter = tqdm.tqdm(enumerate(data_loader),
                               desc="EP_%s:%d" % (str_code, epoch),
@@ -281,6 +284,7 @@ class BERTTrainer_AL:
                               bar_format="{l_bar}{r_bar}")
 
         avg_loss = 0.0
+        inf_loss = 0.0
         total_correct = 0
         total_element = 0
 
@@ -302,7 +306,7 @@ class BERTTrainer_AL:
 
             # 2-3. Adding next_loss and mask_loss : 3.4 Pre-training Procedure
             loss = mask_loss
-
+            avg_loss += loss.item()
             # 3. backward and optimization only in train
             if train:
                 self.optim_schedule.zero_grad()
@@ -310,13 +314,16 @@ class BERTTrainer_AL:
                 self.optim_schedule.step_and_update_lr()
 
             # next sentence prediction accuracy
+            with torch.no_grad():
+                mask_pred = self.model.inference(data["bert_input"])
+                # print(mask_pred.shape)
+                inf_loss += self.criterion(mask_pred.transpose(1,2), data["bert_label"]).item()
 
             post_fix = {
                 "epoch": epoch,
                 "iter": i,
                 "avg_loss": avg_loss / (i + 1),
-                # "avg_acc": total_correct / total_element * 100,
-                "loss": loss.item()
+                "inf loss": inf_loss / (i + 1)
             }
 
             if i % self.log_freq == 0:
@@ -330,8 +337,7 @@ class BERTTrainer_AL:
                 wandb_data[f"valid {k}"] = np.mean(epoch_loss_data[k])
 
         wandb.log(wandb_data)
-        print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss / len(data_iter), "total_acc=",
-              total_correct * 100.0 / total_element)
+        print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss / len(data_iter))
 
     def save(self, epoch, file_path="output/bert_trained.model"):
         """

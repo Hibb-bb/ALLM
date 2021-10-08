@@ -75,7 +75,7 @@ class BERTAL(nn.Module):
         self.feed_forward_hidden = hidden * 4
 
         # embedding for BERT, sum of positional, segment, token embeddings
-        self.embedding = BERTEmbedding_AL(vocab_size=vocab_size, embed_size=hidden)
+        self.embedding = BERTEmbedding_AL(vocab_size=vocab_size, g_dim=self.g_dim, embed_size=hidden)
 
         # TODO: switch to ALBlock, and remove ModuleList if it doesn't work.
         # multi-layers transformer blocks, deep network
@@ -90,21 +90,21 @@ class BERTAL(nn.Module):
         mask = (x > 0).unsqueeze(1).repeat(1, x.size(1), 1).unsqueeze(1)
 
         # embedding the indexed sequence to sequence of vectors
-        x, y, loss = self.embedding(x, segment_info, y)
+        x, y, loss, y_mask = self.embedding(x, segment_info, y)
         
         loss_data["emb associated loss"] = self.embedding.al
         loss_data["emb AE loss"] = self.embedding.ael
 
         # running over multiple transformer blocks
         for idx, transformer in enumerate(self.transformer_blocks):
-            x, y, l = transformer.forward(x, mask)
+            x, y, l = transformer.forward(x, mask, y, y_mask)
             loss += l
             loss_data[f"transformer layer{idx} associated loss"] = transformer.ass_loss
             loss_data[f"transformer layer{idx} AE loss"] = transformer.ae_loss
 
         return loss, loss_data
 
-    def inference(self, x, y):
+    def inference(self, x):
         mask = (x > 0).unsqueeze(1).repeat(1, x.size(1), 1).unsqueeze(1)
 
         # embedding the indexed sequence to sequence of vectors
@@ -114,8 +114,10 @@ class BERTAL(nn.Module):
         for transformer in self.transformer_blocks:
             x = transformer.inference(x, mask)
         y = self.transformer_blocks[-1].b(x)
+        # print(y.shape)
         for transformer in reversed(self.transformer_blocks):
             y = transformer.h(y)
+            # print(y.shape)
         y_pred = self.embedding.h(y)
 
         return y_pred

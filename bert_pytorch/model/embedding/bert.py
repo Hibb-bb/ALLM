@@ -98,19 +98,17 @@ class BERTEmbedding_AL(nn.Module):
         self.segment = SegmentEmbedding(embed_size=self.token.embedding_dim)
         self.dropout = nn.Dropout(p=dropout)
         class_num = vocab_size
+        
         self.g = nn.Sequential(
-            nn.Embedding(class_num, g_dim, padding=0),
+            nn.Linear(embed_size, g_dim),
             act
         )
+        
         self.h = nn.Sequential(
             nn.Linear(g_dim, class_num),
             nn.LogSoftmax(dim=-1)
         )
 
-        self.b = nn.Sequential(
-            nn.Linear(embed_size, g_dim),
-            act
-        )
         self.embed_size = embed_size
         self.ass_loss = nn.MSELoss()
         self.ae_loss = LabelSmooth()
@@ -118,19 +116,34 @@ class BERTEmbedding_AL(nn.Module):
 
     def forward(self, sequence, segment_label, y):
         x = self.dropout(self.token(sequence) + self.position(sequence))#  + self.segment(segment_label)
-        y_emb = self.dropout(self.g(y))
-        x_bridge = self.dropout(self.b(x))
+        # print('\nx', x.shape)
+        # print('y', y.shape)
+
+        y_emb = self.dropout(self.g(self.token(y) + self.position(y)))
+        y_pred = self.h(y_emb)
+        # print('y emb',y_emb.shape)
+        y_mask = (y > 0).float().unsqueeze(1)
+        # print('y mask', y_mask.shape)
+        y_emb = torch.bmm(y_mask, y_emb).squeeze(1)
+        x_bridge = self.g(torch.bmm(y_mask, x).squeeze(1))
+
+        # print('y emb', y_emb.shape) 
+        # print('x bridge', x_bridge.shape)
         ass_loss = self.ass_loss(x_bridge, y_emb)
-        y_pred = self.dropout(self.h(y_emb))
-        ae_loss = self.ae_loss(y_pred, y)
+        # y_pred = self.dropout(self.h(y_emb))
+        # print('y pred', y_pred.shape)
+        ae_loss = self.ae_loss(y_pred.transpose(1,2), y)
         self.al = ass_loss.item()
         self.ael = ae_loss.item()
-
+        # print('al', self.al)
+        # print('ael', self.ael)
+        # print(y_mask)
         if self.detach:
             x = x.detach()
             y_emb = y.detach()
 
-        return x, y_emb, ae_loss + ass_loss
+        # print('x',x.shape, 'y',y_emb.shape)
+        return x, y_emb, ae_loss + ass_loss, y_mask
 
     def inference(self, x):
         return self.token(x) + self.position(x)

@@ -2,7 +2,7 @@ import torch.nn as nn
 
 from .attention import MultiHeadedAttention
 from .utils import SublayerConnection, PositionwiseFeedForward
-
+import torch
 
 class TransformerBlock(nn.Module):
     """
@@ -37,7 +37,7 @@ class TransformerBlock_AL(nn.Module):
     Transformer = MultiHead_Attention + Feed_Forward with sublayer connection
     """
 
-    def __init__(self, hidden, attn_heads, feed_forward_hidden, dropout, g_dim, h_dim, act=nn.Indentity(), detach=True):
+    def __init__(self, hidden, attn_heads, feed_forward_hidden, dropout, g_dim, h_dim, act=nn.Identity(), detach=True):
         """
         :param hidden: hidden size of transformer
         :param attn_heads: head sizes of multi-head attention
@@ -68,13 +68,14 @@ class TransformerBlock_AL(nn.Module):
         self.cri = nn.MSELoss()
         self.detach = detach
 
-    def forward(self, x, mask, y):
+    def forward(self, x, mask, y, y_mask):
 
         x = self.input_sublayer(x, lambda _x: self.attention.forward(_x, _x, _x, mask=mask))
         x = self.dropout(self.output_sublayer(x, self.feed_forward))
-        y_emb = self.g(y)
+        y_emb = self.g(y.float())
         y_back = self.h(y_emb)
-        x_b = self.b(x)
+        # y_mask = (y > 0).float().unsqueeze(1)
+        x_b = self.b(torch.bmm(y_mask, x).squeeze(1))
 
         """
         compute loss

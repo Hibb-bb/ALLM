@@ -2,6 +2,6 @@
     "hidden":384,
     "g_dim":128,
     "h_dim":128,
-    "detach":true,
-    "act":"gelu",
+    "detach":1,
+    "act": "tanh"
 }
