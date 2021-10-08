@@ -39,7 +39,6 @@ print(train_text[:5])
 
 test_text = merge_sents([bpemb.encode(t) for t in test_text])
 
-
 with open('wikitext.train.txt', 'w') as f:
     for t in train_text:
         f.write(f'{t}\n')

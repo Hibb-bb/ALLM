@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from .bert import BERT
+from .bert import BERT, BERTAL
 
 
 class BERTLM(nn.Module):
@@ -23,6 +23,12 @@ class BERTLM(nn.Module):
     def forward(self, x, segment_label):
         x = self.bert(x, segment_label)
         return self.next_sentence(x), self.mask_lm(x)
+
+
+
+class BERTLM_AL(BERTAL):
+    def __init__(self):
+        super().__init__()
 
 
 class NextSentencePrediction(nn.Module):
