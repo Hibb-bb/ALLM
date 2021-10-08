@@ -67,7 +67,7 @@ def train():
         if test_dataset is not None else None
 
     print("Building BERT model")
-    bert = BERTAL(vocab_size=len(vocab), hidden=384, n_layers=12, attn_heads=6, dropout=0.1, config=config)
+    bert = BERTAL(vocab_size=len(vocab), hidden=384, n_layers=6, attn_heads=6, dropout=0.1, config=config)
 
     print("Creating BERT Trainer")
     trainer = BERTTrainer_AL(bert, len(vocab), train_dataloader=train_data_loader, test_dataloader=test_data_loader,

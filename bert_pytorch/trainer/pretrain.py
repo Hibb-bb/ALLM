@@ -241,6 +241,8 @@ class BERTTrainer_AL:
         if with_cuda and torch.cuda.device_count() > 1:
             print("Using %d GPUS for BERT" % torch.cuda.device_count())
             self.model = nn.DataParallel(self.model, device_ids=cuda_devices)
+            self.model.to(self.device)
+
         else:
             self.model = self.model.to(self.device)
         # Setting the train and test data loader
@@ -293,7 +295,7 @@ class BERTTrainer_AL:
         for i, data in data_iter:
             # 0. batch_data will be sent into the device(GPU or cpu)
             data = {key: value.to(self.device) for key, value in data.items()}
-
+            
             # 1. forward the next_sentence_prediction and masked_lm model
             mask_loss, mask_loss_data = self.model.forward(data["bert_input"], data["segment_label"], data["bert_label"])
 
