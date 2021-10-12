@@ -1,0 +1,7 @@
+{
+    "hidden":384,
+    "g_dim":128,
+    "h_dim":128,
+    "detach":1,
+    "act": "tanh"
+}
