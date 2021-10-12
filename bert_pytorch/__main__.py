@@ -1,11 +1,11 @@
 import argparse
 
 from torch.utils.data import DataLoader
-
-from .model import BERT
-from .trainer import BERTTrainer
+import torch
+from .model import BERT, BERTLM_AL, BERTAL
+from .trainer import BERTTrainer_AL
 from .dataset import BERTDataset, WordVocab
-
+import json
 
 def train():
     parser = argparse.ArgumentParser()
@@ -15,14 +15,16 @@ def train():
     parser.add_argument("-v", "--vocab_path", required=True, type=str, help="built vocab model path with bert-vocab")
     parser.add_argument("-o", "--output_path", required=True, type=str, help="ex)output/bert.model")
 
-    parser.add_argument("-hs", "--hidden", type=int, default=256, help="hidden size of transformer model")
-    parser.add_argument("-l", "--layers", type=int, default=8, help="number of layers")
+    parser.add_argument("-hs", "--hidden", type=int, default=384, help="hidden size of transformer model")
+    parser.add_argument("-l", "--layers", type=int, default=6, help="number of layers")
     parser.add_argument("-a", "--attn_heads", type=int, default=8, help="number of attention heads")
-    parser.add_argument("-s", "--seq_len", type=int, default=20, help="maximum sequence len")
+    parser.add_argument("-s", "--seq_len", type=int, default=128, help="maximum sequence len")
 
     parser.add_argument("-b", "--batch_size", type=int, default=64, help="number of batch_size")
     parser.add_argument("-e", "--epochs", type=int, default=10, help="number of epochs")
     parser.add_argument("-w", "--num_workers", type=int, default=5, help="dataloader worker size")
+
+    parser.add_argument("-cf", "--config", required=True, type=str, default="config/bert.al.json")
 
     parser.add_argument("--with_cuda", type=bool, default=True, help="training with CUDA: true, or false")
     parser.add_argument("--log_freq", type=int, default=10, help="printing loss every n iter: setting n")
@@ -34,8 +36,18 @@ def train():
     parser.add_argument("--adam_weight_decay", type=float, default=0.01, help="weight_decay of adam")
     parser.add_argument("--adam_beta1", type=float, default=0.9, help="adam first beta value")
     parser.add_argument("--adam_beta2", type=float, default=0.999, help="adam first beta value")
+    
 
     args = parser.parse_args()
+
+    with open(args.config) as f:
+        config = json.load(f)
+    if config["act"] == "gelu":
+        config["act"] = torch.nn.GELU()
+    elif config["act"] == "tanh":
+        config["act"] = torch.nn.Tanh()
+    else:
+        config["act"] = torch.nn.Identity()
 
     print("Loading Vocab", args.vocab_path)
     vocab = WordVocab.load_vocab(args.vocab_path)
@@ -51,16 +63,16 @@ def train():
 
     print("Creating Dataloader")
     train_data_loader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=args.num_workers)
-    test_data_loader = DataLoader(test_dataset, batch_size=args.batch_size, num_workers=args.num_workers) \
+    test_data_loader = DataLoader(test_dataset, batch_size=32, num_workers=args.num_workers) \
         if test_dataset is not None else None
 
     print("Building BERT model")
-    bert = BERT(len(vocab), hidden=args.hidden, n_layers=args.layers, attn_heads=args.attn_heads)
+    bert = BERTAL(vocab_size=len(vocab), hidden=384, n_layers=6, attn_heads=6, dropout=0.1, config=config)
 
     print("Creating BERT Trainer")
-    trainer = BERTTrainer(bert, len(vocab), train_dataloader=train_data_loader, test_dataloader=test_data_loader,
+    trainer = BERTTrainer_AL(bert, len(vocab), train_dataloader=train_data_loader, test_dataloader=test_data_loader,
                           lr=args.lr, betas=(args.adam_beta1, args.adam_beta2), weight_decay=args.adam_weight_decay,
-                          with_cuda=args.with_cuda, cuda_devices=args.cuda_devices, log_freq=args.log_freq)
+                          with_cuda=args.with_cuda, cuda_devices=args.cuda_devices, log_freq=args.log_freq, config=config)
 
     print("Training Start")
     for epoch in range(args.epochs):
