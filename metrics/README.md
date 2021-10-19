@@ -14,4 +14,6 @@
 ## TODOs
 
 1. (glue.py) get_vocab: convert vocab.txt to Dict{'word': id}.
+1. (glue.py) trainer
+1. (model.py) multi-task model
 1. (utils.py) benchmark function like F1 score, Pearson-Spearman.
