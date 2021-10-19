@@ -1,16 +1,17 @@
 # GLUE Benchmark Tasks
 
-    [website](https://gluebenchmark.com/tasks)
-    [source code](https://github.com/nyu-mll/GLUE-baselines/tree/master)
+[website](https://gluebenchmark.com/tasks)
+[source code](https://github.com/nyu-mll/GLUE-baselines/tree/master)
+[jiant](https://github.com/nyu-mll/jiant)
 
 ## Files
 
-    * `glue.py`: main file.
-    * `tasks.py`: load dataset.
-    * `utils.py`
+* `glue.py`: main file.
+* `model.py`: classifier.
+* `tasks.py`: load dataset.
+* `utils.py`
 
 ## TODOs
 
-    1. (glue.py) build task.
-    1. (utils.py) tokenizer.
-    1. (utils.py) metric function like F1 score, Pearson-Spearman.
+1. (glue.py) get_vocab: convert vocab.txt to Dict{'word': id}.
+1. (utils.py) benchmark function like F1 score, Pearson-Spearman.
